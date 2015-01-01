@@ -79,37 +79,23 @@ static double shaper_getr(shaper_t *sh, double phi,
 
 
 
-static void shaper_mc(shaper_t *sh, double amp)
+static void shaper_lang(shaper_t *sh, double dt, double tp)
 {
   int l, m;
-  double y;
+  double y, amp;
 
   l = (int) ((sh->lmax + 1) * rand01());
-  m = (int) ((2*l + 2) * rand01());
-  y = sh->c[l][m];
-  y += -amp*amp*y + randgaus() * amp;
-  if ( y > 1 ) y = 1;
-  else if ( y < -1 ) y = -1;
-  //printf("l %d, m %d, c %g -> %g\n", l, m, sh->c[l][m], y);
-  sh->c[l][m] = y;
-}
-
-
-
-static void shaper_lang(shaper_t *sh, double amp)
-{
-  int l, m;
-  double y;
-
-  l = (int) ((sh->lmax + 1) * rand01());
-  for ( l = 0; l <= sh->lmax; l++ )
+  amp = sqrt(2 * tp * dt);
+  for ( l = sh->lmin; l <= sh->lmax; l++ ) {
     for ( m = 0; m < 2 * l + 2; m++ ) {
       y = sh->c[l][m];
-      y += -amp*amp*y + randgaus() * amp;
+      /* d^2 y / d t^2 = -nabla^2 y = -l (l + 1) y */
+      y += -l * (l + 1) * y * dt + randgaus() * amp;
       if ( y > 1 ) y = 1;
       else if ( y < -1 ) y = -1;
       sh->c[l][m] = y;
     }
+  }
 }
 
 

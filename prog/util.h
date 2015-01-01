@@ -59,6 +59,67 @@
 
 
 
+/* vector routines */
+
+
+
+#ifndef D
+#define D 3
+#endif
+typedef double vec[D];
+
+
+
+__inline static void vzero(double *x)
+{
+  int d;
+  for ( d = 0; d < D; d++ ) x[d] = 0;
+}
+
+
+
+#define vinc(x, dx) vsinc(x, dx, 1)
+#define vdec(x, dx) vsinc(x, dx, -1)
+
+__inline static double *vsinc(double *x, const double *dx, double s)
+{
+  int d;
+  for ( d = 0; d < D; d++ ) x[d] += dx[d] * s;
+  return x;
+}
+
+
+
+__inline static double *vdiff(double *c, const double *a, const double *b)
+{
+  int d;
+  for ( d = 0; d < D; d++ ) c[d] = a[d] - b[d];
+  return c;
+}
+
+
+
+__inline static double *vsmul(double *x, double s)
+{
+  int d;
+  for ( d = 0; d < D; d++ ) x[d] *= s;
+  return x;
+}
+
+
+
+#define vsqr(x) vdot(x, x)
+
+#define vnorm(x) sqrt( vsqr(x) )
+
+__inline static double vdot(const double *x, const double *y)
+{
+  int d;
+  double s = 0;
+  for ( d = 0; d < D; d++ ) s += x[d] * y[d];
+  return s;
+}
+
 
 
 /* Special functions */
@@ -66,7 +127,7 @@
 
 
 /* return the associated legendre polynomial P_n^m(x) */
-static double alegendre(double x, int n, int m)
+__inline static double alegendre(double x, int n, int m)
 {
   int i, l, neg = 0;
   double y, yp, ypp, s = 1 - x*x;
@@ -104,7 +165,7 @@ static double alegendre(double x, int n, int m)
 
 
 /* return the spherical harmonics Y_l^m(acos x, 0) */
-static double Ylm0(double x, int l, int m)
+__inline static double Ylm0(double x, int l, int m)
 {
   int i, neg = 0;
   double y, z;
@@ -135,7 +196,7 @@ static double Ylm0(double x, int l, int m)
 
 
 /* hue value (0, 1) to color */
-static void huetorgb(float *c, float h)
+__inline static void huetorgb(float *c, float h)
 {
   float min = 0.3f, max = 1.0f;
   float up, down, r = 0, g = 0, b = 0, f;

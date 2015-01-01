@@ -10,7 +10,8 @@ LMX = -lm
 #CX = icc -O2 -Wall -Wremarks
 #LMX =
 
-bins = shaper
+csrc = $(wildcard *.c)
+bins = $(patsubst %.c, %, $(csrc))
 bins_d = $(patsubst %, %_d, $(bins))
 bins_nofftw = $(patsubst %, %_nofftw, $(bins))
 deps = $(wildcard *.h) Makefile
@@ -24,7 +25,7 @@ $(bins_d): %_d : %.c $(deps)
 	$(CC) -o $@ $< -lglut $(LM)
 
 clean:
-	rm -rf $(bins) $(bins_d) *~ a.out *.dat* gmon.out .*.un~ */*~ */.*.un~ . MTSEED
+	rm -rf $(bins) $(bins_d) *.pos *~ a.out *.dat* gmon.out .*.un~ */*~ */.*.un~ MTSEED
 	rm -rf r[0-9]*hs
 	rstrip.py -Rlv
 
