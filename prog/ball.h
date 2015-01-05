@@ -6,6 +6,8 @@
 #define D 3
 #include "util.h"
 #include "mtrand.h"
+#include "graph.h"
+#include "rdf.h"
 
 
 
@@ -19,8 +21,11 @@ typedef struct {
   double (*x)[D]; /* position */
   double (*v)[D]; /* velocity */
   double (*f)[D]; /* force */
+  double *r2ij;
   double epot;
   double vir;
+  graph_t *g;
+  hist_t *rdf;
 } ball_t;
 
 
@@ -102,15 +107,18 @@ static ball_t *ball_open(int n, double rho)
   xnew(b->x, n);
   xnew(b->v, n);
   xnew(b->f, n);
+  xnew(b->r2ij, n * n);
 
   ball_inituniform(b);
 
-  /* init. random velocities */
+  /* initialize random velocities */
   for (i = 0; i < n; i++)
     for ( d = 0; d < D; d++ )
       b->v[i][d] = randgaus();
   ball_rattle(b, b->v, b->x);
 
+  b->g = graph_open(n);
+  b->rdf = hist_open(1, 0, 2*b->R, 0.01);
   return b;
 }
 
@@ -121,13 +129,20 @@ static void ball_close(ball_t *b)
   free(b->x);
   free(b->v);
   free(b->f);
+  free(b->r2ij);
+  graph_close(b->g);
+  hist_close(b->rdf);
   free(b);
 }
 
 
 
+#define ball_energy(b) \
+  b->epot = ball_energy_low(b, b->x, b->f, b->r2ij, &b->vir)
+
 /* compute the potential energy and virial */
-__inline static double ball_energy(ball_t *b, double (*x)[D], double *virial)
+__inline static double ball_energy_low(ball_t *b,
+    double (*x)[D], double *r2ij, double *virial)
 {
   double dx[D], dr2, dr6, fs, ep, vir;
   int i, j, n = b->n;
@@ -136,6 +151,7 @@ __inline static double ball_energy(ball_t *b, double (*x)[D], double *virial)
     for (j = i + 1; j < n; j++) {
       vdiff(dx, x[i], x[j]);
       dr2 = vsqr(dx);
+      r2ij[i*n + j] = dr2;
       dr2 = 1 / dr2;
       dr6 = dr2 * dr2 * dr2;
       fs = dr6 * (48 * dr6 - 24); /* f.r */
@@ -149,8 +165,12 @@ __inline static double ball_energy(ball_t *b, double (*x)[D], double *virial)
 
 
 
+#define ball_force(b) \
+  b->epot = ball_force_low(b, b->x, b->f, b->r2ij, &b->vir)
+
 /* compute the force and virial, return the potential energy */
-__inline static double ball_force(ball_t *b, double (*x)[D], double (*f)[D], double *virial)
+__inline static double ball_force_low(ball_t *b,
+    double (*x)[D], double (*f)[D], double *r2ij, double *virial)
 {
   double dx[D], fi[D], dr2, dr6, fs, ep, vir;
   int i, j, n = b->n;
@@ -161,6 +181,7 @@ __inline static double ball_force(ball_t *b, double (*x)[D], double (*f)[D], dou
     for (j = i + 1; j < n; j++) {
       vdiff(dx, x[i], x[j]);
       dr2 = vsqr(dx);
+      r2ij[i*n + j] = dr2;
       dr2 = 1 / dr2;
       dr6 = dr2 * dr2 * dr2;
       fs = dr6 * (48 * dr6 - 24); /* f.r */
@@ -178,7 +199,7 @@ __inline static double ball_force(ball_t *b, double (*x)[D], double (*f)[D], dou
 
 
 
-/* velocity-verlet */
+/* velocity verlet */
 __inline static void ball_vv(ball_t *b, double dt)
 {
   int i, n = b->n;
@@ -189,7 +210,7 @@ __inline static void ball_vv(ball_t *b, double dt)
     vsinc(b->x[i], b->v[i], dt);
   }
   ball_shake(b, b->x);
-  b->epot = ball_force(b, b->x, b->f, &b->vir);
+  ball_force(b);
   for (i = 0; i < n; i++) /* VV part 2 */
     vsinc(b->v[i], b->f[i], dth);
   ball_rattle(b, b->v, b->x);
@@ -254,6 +275,56 @@ __inline static int ball_writepos(ball_t *b,
     fprintf(fp, "\n");
   }
   fclose(fp);
+  return 0;
+}
+
+
+
+/* compute a graph */
+__inline static void ball_mkgraph(ball_t *b, graph_t *g, double rm)
+{
+  int i, j, n = b->n;
+  double rm2 = rm * rm;
+
+  graph_empty(g);
+  for ( i = 0; i < n; i++ )
+    for ( j = i + 1; j < n; j++ )
+      if ( b->r2ij[i*n + j] < rm2 )
+        graph_link(g, i, j);
+}
+
+
+
+/* histogram for coordination numbers */
+__inline static void ball_cnum(ball_t *b, graph_t *g, double rm)
+{
+  ball_mkgraph(b, g, rm);
+  graph_zhist(g);
+}
+
+
+
+/* accumulate the rdf */
+__inline static void ball_rdf(ball_t *b, double (*x)[D])
+{
+  double dx[D], dr;
+  int i, j, n = b->n;
+
+  for (i = 0; i < n - 1; i++) {
+    for (j = i + 1; j < n; j++) {
+      vdiff(dx, x[i], x[j]);
+      dr = sqrt( vsqr(dx) );
+      hist_add1(b->rdf, 0, dr, 1.0, HIST_VERBOSE);
+    }
+  }
+}
+
+
+
+/* save rdf to file */
+__inline static int ball_rdf_save(const ball_t *b, const char *fn)
+{
+  hist_save(b->rdf, fn, HIST_ADDAHALF | HIST_KEEPLEFT | HIST_VERBOSE);
   return 0;
 }
 

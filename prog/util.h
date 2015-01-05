@@ -122,6 +122,15 @@ __inline static double vdot(const double *x, const double *y)
 
 
 
+/* return the angle between `x' and `y' */
+__inline static double ang(const double *x, const double *y)
+{
+  return acos( vdot(x, y) );
+}
+
+
+
+
 /* Special functions */
 
 

@@ -73,7 +73,7 @@ static void genpts(GLfloat *x, int n, int m)
 
 
 
-void timer(int value)
+static void timer(int value)
 {
   glutPostRedisplay(); /* tell window to redraw */
   glutTimerFunc(interval, timer, ++value);
@@ -81,7 +81,7 @@ void timer(int value)
 
 
 
-void display(void)
+static void display(void)
 {
   int i, j;
   static int once;
