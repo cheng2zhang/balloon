@@ -24,7 +24,7 @@
 
 
 int lmax = 9; /* maximal l of spherical harmonics */
-double dt = 0.01;
+double dt = 0.001;
 double tp = 1;
 
 enum {
